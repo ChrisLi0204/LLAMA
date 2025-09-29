@@ -21,48 +21,52 @@ from llama import Llama, load_pretrained
 from optimizer import AdamW
 from tokenizer import Tokenizer
 from utils import (
-	finish_wandb,
-	get_resume_checkpoint_path,
-	init_wandb,
-	maybe_resume_from_checkpoint,
-	save_model,
+    finish_wandb,
+    get_resume_checkpoint_path,
+    init_wandb,
+    maybe_resume_from_checkpoint,
+    save_model,
 )
 
-
 TQDM_DISABLE = False
-# fix the random seed
+
+# Fix the random seed
 def seed_everything(seed=11711):
-	random.seed(seed)
-	np.random.seed(seed)
-	torch.manual_seed(seed)
-	torch.cuda.manual_seed(seed)
-	torch.cuda.manual_seed_all(seed)
-	torch.backends.cudnn.benchmark = False
-	torch.backends.cudnn.deterministic = True
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
 
 
 class WarmupLearningRateScheduler:
-	"""Linear warmup scheduler that falls back to a constant learning rate."""
+    """Linear warmup scheduler that falls back to a constant learning rate."""
 
-	def __init__(self, base_lr: float, warmup_steps: int):
-		self.base_lr = base_lr
-		self.warmup_steps = max(0, warmup_steps)
+    def __init__(self, base_lr: float, warmup_steps: int):
+        self.base_lr = base_lr
+        self.warmup_steps = max(0, warmup_steps)
 
-	def lr_at_step(self, step: int) -> float:
-		#TODO
-		# ====================== Implement lr_at_step here ======================
-		# Implement a linear warmup learning rate scheduler.
-		#
-		# Args:
-		#     step (int): Current training step (0-indexed)
-		#
-		# Returns:
-		#     float: Learning rate for the given step
-		pass
-		# ====================== Implement lr_at_step here ======================
+    def lr_at_step(self, step: int) -> float:
+        """
+        Compute the learning rate for the given step. Implements a linear warmup.
 
-	def __call__(self, step: int) -> float:
-		return self.lr_at_step(step)
+        Args:
+            step (int): Current training step (0-indexed)
+
+        Returns:
+            float: Learning rate for the given step
+        """
+        if step < self.warmup_steps:
+            # Linear warmup: scale the base_lr proportionally to the step
+            return self.base_lr * (step + 1) / self.warmup_steps
+        else:
+            # After warmup, use a constant learning rate
+            return self.base_lr
+
+    def __call__(self, step: int) -> float:
+        return self.lr_at_step(step)
 
 class PretrainingSequenceDataset(Dataset):
 	def __init__(self, data_dir: Path, metadata: dict, block_size: int):
@@ -173,37 +177,65 @@ def preprocess_pretraining_corpus(data_path: str, tokenizer: Tokenizer, tokenize
 	return output_dir, metadata
 
 def evaluate_pretraining(dataloader, model, device, marker="val"):
-	model.eval()
-	total_loss = 0.0
-	total_tokens = 0
-	with torch.no_grad():
-		for batch in tqdm(dataloader, desc=marker, disable=TQDM_DISABLE):
-			token_ids = batch['token_ids'].to(device)
-			logits = model.llama(token_ids, targets=token_ids)[0]
-			logits = F.log_softmax(logits, dim=-1)
-			shift_logits = logits[..., :-1, :].contiguous()
-			shift_labels = token_ids[..., 1:].contiguous()
-			if shift_logits.size(1) == 0:
-				continue
-			logits_flat = shift_logits.view(-1, shift_logits.size(-1))
-			labels_flat = shift_labels.view(-1)
-			if pad_token_id is not None:
-				valid_mask = labels_flat.ne(pad_token_id)
-				if not torch.any(valid_mask):
-					continue
-				logits_flat = logits_flat[valid_mask]
-				labels_flat = labels_flat[valid_mask]
-			batch_token_count = labels_flat.numel()
-			if batch_token_count == 0:
-				continue
-			batch_loss = F.nll_loss(logits_flat, labels_flat, reduction='sum')
-			total_loss += batch_loss.item()
-			total_tokens += batch_token_count
-	if total_tokens == 0:
-		return float('inf'), float('inf')
-	avg_loss = total_loss / total_tokens
-	perplexity = math.exp(avg_loss)
-	return avg_loss, perplexity
+    """
+    Evaluate the model on a validation/test dataset.
+    
+    Args:
+        dataloader: DataLoader for evaluation data
+        model: Model to evaluate
+        device: Device to run on
+        marker: Label for progress bar (default: "val")
+    
+    Returns:
+        tuple: (average_loss_per_token, perplexity)
+    """
+    model.eval()
+    total_loss = 0.0
+    total_tokens = 0
+    
+    with torch.no_grad():
+        for batch in tqdm(dataloader, desc=marker, disable=TQDM_DISABLE):
+            # Transfer to device with non_blocking for speed
+            token_ids = batch['token_ids'].to(device, non_blocking=True)
+            
+            # Forward pass
+            logits = model.llama(token_ids, targets=token_ids)[0]
+            
+            # Prepare shifted sequences for next-token prediction
+            shift_logits = logits[..., :-1, :]
+            shift_labels = token_ids[..., 1:]
+            
+            # Skip if no tokens to process
+            if shift_logits.size(1) == 0:
+                continue
+            
+            # Flatten for loss calculation
+            logits_flat = shift_logits.reshape(-1, shift_logits.size(-1))
+            labels_flat = shift_labels.reshape(-1)
+            
+            batch_token_count = labels_flat.numel()
+            if batch_token_count == 0:
+                continue
+            
+            # Use cross_entropy directly (much faster than log_softmax + nll_loss)
+            batch_loss = F.cross_entropy(
+                logits_flat, 
+                labels_flat, 
+                reduction='sum'
+            )
+            
+            total_loss += batch_loss.item()
+            total_tokens += batch_token_count
+    
+    # Handle edge case of no valid tokens
+    if total_tokens == 0:
+        return float('inf'), float('inf')
+    
+    # Calculate metrics
+    avg_loss = total_loss / total_tokens
+    perplexity = math.exp(avg_loss)
+    
+    return avg_loss, perplexity
 
 
 def train(args):
@@ -226,6 +258,9 @@ def train(args):
         shuffle=True,
         batch_size=args.micro_batch_size,
         collate_fn=train_dataset.collate_fn,
+        num_workers=4,  # Parallel data loading
+        pin_memory=True,  # Faster GPU transfer
+        persistent_workers=True  # Keep workers alive between epochs
     )
 
     dev_dataloader = None
@@ -390,12 +425,12 @@ def train(args):
             token_count = shift_labels.numel()
 
             if shift_logits.size(1) > 0:
-                token_loss_sum = F.nll_loss(
+                token_loss_sum = F.cross_entropy(
                     shift_logits.view(-1, shift_logits.size(-1)),
                     shift_labels.view(-1),
                     reduction='sum',
                 )
-                loss = token_loss_sum / gradient_accumulation_steps / token_count
+                loss = token_loss_sum / gradient_accumulation_steps
                 token_loss_total += token_loss_sum.item()
                 token_count_total += token_count
                 accumulated_token_loss += token_loss_sum.item()

@@ -3,27 +3,27 @@
 # Unified download script for COMP4901B Homework1
 # Downloads both Common Crawl data and BabyLM datasets
 
-echo "Starting data downloads..."
+# echo "Starting data downloads..."
 
-# Common Crawl data download (for data preprocessing task)
-echo "Downloading Common Crawl data to data_preprocess directory..."
-cd data_preprocess
-ROOT=https://data.commoncrawl.org/crawl-data/CC-MAIN-2018-17/segments/1524125937193.1/
+# # Common Crawl data download (for data preprocessing task)
+# echo "Downloading Common Crawl data to data_preprocess directory..."
+# cd data_preprocess
+# ROOT=https://data.commoncrawl.org/crawl-data/CC-MAIN-2018-17/segments/1524125937193.1/
 
-# Note: the --no-clobber arg required curl 7.83. If it doesn't work for you,
-# you can either update curl or remove that argument.
+# # Note: the --no-clobber arg required curl 7.83. If it doesn't work for you,
+# # you can either update curl or remove that argument.
 
-curl -o data.warc.gz --no-clobber ${ROOT}warc/CC-MAIN-20180420081400-20180420101400-00000.warc.gz
-gunzip data.warc.gz
+# curl -o data.warc.gz --no-clobber ${ROOT}warc/CC-MAIN-20180420081400-20180420101400-00000.warc.gz
+# gunzip data.warc.gz
 
-curl -o data.wet.gz --no-clobber ${ROOT}wet/CC-MAIN-20180420081400-20180420101400-00000.warc.wet.gz
-gunzip data.wet.gz
+# curl -o data.wet.gz --no-clobber ${ROOT}wet/CC-MAIN-20180420081400-20180420101400-00000.warc.wet.gz
+# gunzip data.wet.gz
 
-curl -o data.wat.gz --no-clobber ${ROOT}wat/CC-MAIN-20180420081400-20180420101400-00000.warc.wat.gz
-gunzip data.wat.gz
+# curl -o data.wat.gz --no-clobber ${ROOT}wat/CC-MAIN-20180420081400-20180420101400-00000.warc.wat.gz
+# gunzip data.wat.gz
 
-echo "Common Crawl data download completed."
-cd ..
+# echo "Common Crawl data download completed."
+# cd ..
 
 # BabyLM dataset download (for LLaMA training task)
 echo "Downloading BabyLM datasets to llama_training directory..."
@@ -40,3 +40,6 @@ echo "BabyLM dataset download completed."
 cd ..
 
 echo "All downloads finished successfully!"
+
+  echo "Press any key to continue..."
+  read -n 1

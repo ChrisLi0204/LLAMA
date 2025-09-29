@@ -1,0 +1,35 @@
+{
+  "dtype": "uint16",
+  "files": [
+    {
+      "source": "dev\\bnc_spoken.dev",
+      "token_file": "bnc_spoken.bin",
+      "token_count": 1959364
+    },
+    {
+      "source": "dev\\childes.dev",
+      "token_file": "childes.bin",
+      "token_count": 7113838
+    },
+    {
+      "source": "dev\\gutenberg.dev",
+      "token_file": "gutenberg.bin",
+      "token_count": 4093093
+    },
+    {
+      "source": "dev\\open_subtitles.dev",
+      "token_file": "open_subtitles.bin",
+      "token_count": 3967455
+    },
+    {
+      "source": "dev\\simple_wiki.dev",
+      "token_file": "simple_wiki.bin",
+      "token_count": 2304686
+    },
+    {
+      "source": "dev\\switchboard.dev",
+      "token_file": "switchboard.bin",
+      "token_count": 287020
+    }
+  ]
+}

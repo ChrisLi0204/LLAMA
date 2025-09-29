@@ -25,7 +25,22 @@ def html_to_text(html) -> str:
     Returns:
         str: Plain text extracted from HTML.
     """
-    pass 
+    if isinstance(html, bytes):
+        html = html.decode('utf-8', errors='ignore')
+    # Remove script and style elements
+    html = re.sub(r'<(script|style).*?>.*?</\1>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    # Remove all HTML tags
+    text = re.sub(r'<[^>]+>', '', html)
+    # Replace HTML entities with their corresponding characters
+    text = re.sub(r'&nbsp;', ' ', text)
+    text = re.sub(r'&amp;', '&', text)
+    text = re.sub(r'&lt;', '<', text)
+    text = re.sub(r'&gt;', '>', text)
+    text = re.sub(r'&quot;', '"', text)
+    text = re.sub(r'&#39;', "'", text)
+    # Collapse multiple spaces and newlines
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip() 
 
 def replace_pii(text: str) -> str:
     """Masks personally identifiable information (PII) from text with the specified masking formats.
@@ -35,6 +50,16 @@ def replace_pii(text: str) -> str:
         str: Text with PII obfuscated.
     """
     # Replace US social security numbers (XXX-XX-XXXX format)
+    text = re.sub(r'\b\d{3}-\d{2}-\d{4}\b', '[SSN]', text)
+    # Replace email addresses
+    text = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b', '[EMAIL]', text)
+    # Replace phone numbers (simple patterns)
+    text = re.sub(r'\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b', '[PHONE]', text)
+    # Replace credit card numbers (simple patterns)
+    text = re.sub(r'\b(?:\d[ -]*?){13,16}\b', '[CREDIT_CARD]', text)
+    # Replace IP addresses
+    text = re.sub(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', '[IP]', text)
+    return text
     pass 
     
 
@@ -45,7 +70,13 @@ def clean_text(text: str) -> str:
     Returns:
         str: cleaned document
     """
-    pass
+    text = ''.join(c for c in text if c.isprintable())
+    # Remove excessive whitespace
+    text = re.sub(r'\s+', ' ', text)
+    # Remove text if too short
+    if len(text.strip()) < 20:
+        return ""
+    return text.strip()
 
 
 def heuristic_quality_filter(text: str) -> bool:
@@ -55,7 +86,17 @@ def heuristic_quality_filter(text: str) -> bool:
     Returns:
         bool: returns True if the document passes the filters, False otherwise.
     """
-    pass 
+    bad_words = retrieve_bad_words()
+    lowered = text.lower()
+    # Check for bad words
+    bad_count = sum(1 for c in lowered if c in bad_words)
+    if bad_count > len(text) * 0.1:
+        return False
+    # Check for excessive punctuation
+    punct_count = sum(1 for c in text if c in string.punctuation)
+    if punct_count > len(text) * 0.1:  # More than 10% punctuation
+        return False
+    return True
 
 
 def is_english_text(text: str) -> bool:
@@ -65,7 +106,11 @@ def is_english_text(text: str) -> bool:
     Returns:
         bool: True if text is primarily English, False otherwise
     """
-    pass
+    if not text:
+        return False
+    english_chars = sum(1 for c in text if c.isalpha() and c in string.ascii_letters)##generator expression inside
+    ratio = english_chars / max(1, len(text)) ##put 1 in denominator
+    return ratio > 0.7  # At least 70% English letters
     
 
 def deduplicate_texts(texts: list[str]) -> list[str]:
@@ -75,7 +120,16 @@ def deduplicate_texts(texts: list[str]) -> list[str]:
     Returns:
         list[str]: Deduplicated list of texts. Implemented a simple Jaccard similarity based deduplication.
     """
-    pass
+    seen = set()
+    deduped = []
+    for text in texts:
+        norm = text.strip().lower()
+        ##text.strip() removes any leading and trailing whitespace from the string, 
+        
+        if norm not in seen:
+            deduped.append(text)
+            seen.add(norm)
+    return deduped
 
 
 if __name__ == '__main__' :

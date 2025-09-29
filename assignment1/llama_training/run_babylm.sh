@@ -1,8 +1,8 @@
 
 # If you don't want to use WANDB for logging, simply ignore this line and the script will still print out metrics
-export WANDB_API_KEY=YOUR_WANDB_API_KEY
+export WANDB_API_KEY=6c56171857bba858a3d5abeee6e4bdeebf10ab1a
 
-
+CUDA_LAUNCH_BLOCKING=1
 python run_llama.py \
   --run_name run6-fix-loss \
   --option pretrain \
@@ -21,7 +21,14 @@ python run_llama.py \
   --auto_resume \
   --warmup_ratio 0.1 \
   --lr 1e-3 
+  echo "Press any key to continue..."
+  read -n 1
 # --overwrite_tokenized # if you want to overwrite the tokenized data
-
+# --val_path dev \
+# --val_tokenized_dir dev/tokenized \
+# --val_per_steps 200 \
+# --test_path  test \
+# --test_tokenized_dir test/tokenized \
+# --auto_resume False\
 
 
