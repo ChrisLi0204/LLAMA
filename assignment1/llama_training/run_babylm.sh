@@ -4,12 +4,12 @@ export WANDB_API_KEY=6c56171857bba858a3d5abeee6e4bdeebf10ab1a
 
 CUDA_LAUNCH_BLOCKING=1
 python run_llama.py \
-  --run_name run6-fix-loss \
+  --run_name run1-fix-loss \
   --option pretrain \
   --data_path train_100M \
   --block_size  256 \
-  --batch_size 512 \
-  --micro_batch_size 32 \
+  --batch_size 128 \
+  --micro_batch_size 8 \
   --epochs 1 \
   --tokenized_dir train_100M/tokenized \
   --use_gpu  \
